@@ -1,89 +1,55 @@
 using Microsoft.AspNetCore.Mvc;
-using School.Domain.Entities;
-using School.Infrastructure.Exceptions;
-using School.Infrastructure.Interfaces;
-using School.Infrastructure.Models;
+using School.Application.Contract;
+using School.Application.Core;
+using School.Application.Dtos.Department;
 
 namespace School.Api.Controllers;
 
 [ApiController]
 [Route("api/departments")]
-public sealed class DepartmentsController(IDepartmentRepository departments)
+public sealed class DepartmentsController(IDepartamentService service)
     : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DepartmentModel>>> GetAll(
+    public async Task<ActionResult<IReadOnlyList<DepartmentDto>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var items = await departments.GetAllAsync(cancellationToken);
-        return Ok(items.Select(ToModel).ToList());
+        var result = await service.GetAllAsync(cancellationToken);
+        return Ok(result.Data);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<DepartmentModel>> GetById(
+    public async Task<ActionResult<DepartmentDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var department = await departments.GetByIdAsync(id, cancellationToken);
-        return department is null ? NotFound() : Ok(ToModel(department));
+        var result = await service.GetByIdAsync(id, cancellationToken);
+        return Map(result);
     }
 
     [HttpPost]
-    public async Task<ActionResult<DepartmentModel>> Create(
-        DepartmentWriteModel model,
+    public async Task<ActionResult<DepartmentDto>> Create(
+        DepartmentCreateDto dto,
         CancellationToken cancellationToken)
     {
-        var department = new Department
+        var result = await service.CreateAsync(dto, cancellationToken);
+        if (!result.Success)
         {
-            Code = NormalizeCode(model.Code),
-            Name = model.Name.Trim(),
-            Description = model.Description?.Trim(),
-        };
-        try
-        {
-            await departments.AddAsync(department, cancellationToken);
-        }
-        catch (DepartmentException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
+            return Conflict(new { errors = result.Errors });
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = department.Id }, ToModel(department));
+        return CreatedAtAction(
+            nameof(GetById), new { id = result.Data.Id }, result.Data);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<DepartmentModel>> Update(
+    public async Task<ActionResult<DepartmentDto>> Update(
         Guid id,
-        DepartmentWriteModel model,
+        DepartmentUpdateDto dto,
         CancellationToken cancellationToken)
     {
-        var department = await departments.GetByIdAsync(id, cancellationToken);
-        if (department is null)
-        {
-            return NotFound();
-        }
-
-        department.Code = NormalizeCode(model.Code);
-        department.Name = model.Name.Trim();
-        department.Description = model.Description?.Trim();
-        try
-        {
-            await departments.UpdateAsync(department, cancellationToken);
-        }
-        catch (DepartmentException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-
-        return Ok(ToModel(department));
+        var result = await service.UpdateAsync(id, dto, cancellationToken);
+        return Map(result);
     }
 
     [HttpDelete("{id:guid}")]
@@ -91,26 +57,17 @@ public sealed class DepartmentsController(IDepartmentRepository departments)
         Guid id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return await departments.DeleteAsync(id, cancellationToken)
-                ? NoContent()
-                : NotFound();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
+        var result = await service.DeleteAsync(id, cancellationToken);
+        return result.Success ? NoContent() : NotFound(new { errors = result.Errors });
     }
 
-    private static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
+    private ActionResult<DepartmentDto> Map(ServiceResult<DepartmentDto> result)
+    {
+        if (!result.Success)
+        {
+            return NotFound(new { errors = result.Errors });
+        }
 
-    private static DepartmentModel ToModel(Department department) =>
-        new(
-            department.Id,
-            department.Code,
-            department.Name,
-            department.Description,
-            department.CreatedAtUtc,
-            department.UpdatedAtUtc);
+        return Ok(result.Data);
+    }
 }

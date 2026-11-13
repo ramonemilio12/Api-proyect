@@ -1,86 +1,55 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using School.Domain.Entities;
-using School.Domain.Repository;
-using School.Infrastructure.Interfaces;
+using School.Application.Contract;
+using School.Application.Core;
+using School.Application.Dtos.Instructor;
 
 namespace School.Api.Controllers;
 
 [ApiController]
 [Route("api/instructors")]
-public sealed class InstructorsController(
-    IRepository<Instructor> instructors,
-    IDepartmentRepository departments) : ControllerBase
+public sealed class InstructorsController(IInstructorService service)
+    : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<Instructor>>> GetAll(
+    public async Task<ActionResult<IReadOnlyList<InstructorDto>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var items = await instructors.GetAllAsync(cancellationToken);
-        return Ok(items);
+        var result = await service.GetAllAsync(cancellationToken);
+        return Ok(result.Data);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Instructor>> GetById(
+    public async Task<ActionResult<InstructorDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var instructor = await instructors.GetByIdAsync(id, cancellationToken);
-        return instructor is null ? NotFound() : Ok(instructor);
+        var result = await service.GetByIdAsync(id, cancellationToken);
+        return Map(result);
     }
 
     [HttpPost]
-    public async Task<ActionResult<Instructor>> Create(
-        InstructorRequest model,
+    public async Task<ActionResult<InstructorDto>> Create(
+        InstructorCreateDto dto,
         CancellationToken cancellationToken)
     {
-        if (await departments.GetByIdAsync(model.DepartmentId, cancellationToken) is null)
+        var result = await service.CreateAsync(dto, cancellationToken);
+        if (!result.Success)
         {
-            return BadRequest(new { message = "El departamento indicado no existe." });
+            return Conflict(new { errors = result.Errors });
         }
 
-        var instructor = new Instructor();
-        Apply(instructor, model);
-        try
-        {
-            await instructors.AddAsync(instructor, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-
-        return CreatedAtAction(nameof(GetById), new { id = instructor.Id }, instructor);
+        return CreatedAtAction(
+            nameof(GetById), new { id = result.Data.Id }, result.Data);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<Instructor>> Update(
+    public async Task<ActionResult<InstructorDto>> Update(
         Guid id,
-        InstructorRequest model,
+        InstructorUpdateDto dto,
         CancellationToken cancellationToken)
     {
-        var instructor = await instructors.GetByIdAsync(id, cancellationToken);
-        if (instructor is null)
-        {
-            return NotFound();
-        }
-
-        if (await departments.GetByIdAsync(model.DepartmentId, cancellationToken) is null)
-        {
-            return BadRequest(new { message = "El departamento indicado no existe." });
-        }
-
-        Apply(instructor, model);
-        try
-        {
-            await instructors.UpdateAsync(instructor, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-
-        return Ok(instructor);
+        var result = await service.UpdateAsync(id, dto, cancellationToken);
+        return Map(result);
     }
 
     [HttpDelete("{id:guid}")]
@@ -88,45 +57,17 @@ public sealed class InstructorsController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return await instructors.DeleteAsync(id, cancellationToken)
-                ? NoContent()
-                : NotFound();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
+        var result = await service.DeleteAsync(id, cancellationToken);
+        return result.Success ? NoContent() : NotFound(new { errors = result.Errors });
     }
 
-    private static void Apply(Instructor instructor, InstructorRequest model)
+    private ActionResult<InstructorDto> Map(ServiceResult<InstructorDto> result)
     {
-        instructor.EmployeeNumber = model.EmployeeNumber.Trim().ToUpperInvariant();
-        instructor.FirstName = model.FirstName.Trim();
-        instructor.LastName = model.LastName.Trim();
-        instructor.Email = model.Email.Trim().ToLowerInvariant();
-        instructor.PhoneNumber = model.PhoneNumber?.Trim();
-        instructor.DepartmentId = model.DepartmentId;
+        if (!result.Success)
+        {
+            return NotFound(new { errors = result.Errors });
+        }
+
+        return Ok(result.Data);
     }
-}
-
-public sealed class InstructorRequest
-{
-    [Required, StringLength(30, MinimumLength = 2)]
-    public string EmployeeNumber { get; init; } = string.Empty;
-
-    [Required, StringLength(80, MinimumLength = 1)]
-    public string FirstName { get; init; } = string.Empty;
-
-    [Required, StringLength(80, MinimumLength = 1)]
-    public string LastName { get; init; } = string.Empty;
-
-    [Required, EmailAddress, StringLength(200)]
-    public string Email { get; init; } = string.Empty;
-
-    [Phone, StringLength(30)]
-    public string? PhoneNumber { get; init; }
-
-    public Guid DepartmentId { get; init; }
 }

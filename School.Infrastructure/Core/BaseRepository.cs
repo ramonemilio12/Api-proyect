@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using School.Domain.Core;
 using School.Domain.Repository;
@@ -55,6 +56,11 @@ public abstract class BaseRepository<TEntity>(SchoolContext context)
         await SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public Task<bool> ExistsAsync(
+        Expression<Func<TEntity, bool>> predicate,
+        CancellationToken cancellationToken = default) =>
+        Entities.AsNoTracking().AnyAsync(predicate, cancellationToken);
 
     private async Task SaveChangesAsync(CancellationToken cancellationToken)
     {

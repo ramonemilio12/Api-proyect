@@ -1,86 +1,55 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using School.Domain.Entities;
-using School.Domain.Repository;
-using School.Infrastructure.Interfaces;
+using School.Application.Contract;
+using School.Application.Core;
+using School.Application.Dtos.Student;
 
 namespace School.Api.Controllers;
 
 [ApiController]
 [Route("api/students")]
-public sealed class StudentsController(
-    IRepository<Student> students,
-    IDepartmentRepository departments) : ControllerBase
+public sealed class StudentsController(IStudentService service)
+    : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<Student>>> GetAll(
+    public async Task<ActionResult<IReadOnlyList<StudentDto>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var items = await students.GetAllAsync(cancellationToken);
-        return Ok(items);
+        var result = await service.GetAllAsync(cancellationToken);
+        return Ok(result.Data);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Student>> GetById(
+    public async Task<ActionResult<StudentDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var student = await students.GetByIdAsync(id, cancellationToken);
-        return student is null ? NotFound() : Ok(student);
+        var result = await service.GetByIdAsync(id, cancellationToken);
+        return Map(result);
     }
 
     [HttpPost]
-    public async Task<ActionResult<Student>> Create(
-        StudentRequest model,
+    public async Task<ActionResult<StudentDto>> Create(
+        StudentCreateDto dto,
         CancellationToken cancellationToken)
     {
-        if (await departments.GetByIdAsync(model.DepartmentId, cancellationToken) is null)
+        var result = await service.CreateAsync(dto, cancellationToken);
+        if (!result.Success)
         {
-            return BadRequest(new { message = "El departamento indicado no existe." });
+            return Conflict(new { errors = result.Errors });
         }
 
-        var student = new Student();
-        Apply(student, model);
-        try
-        {
-            await students.AddAsync(student, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-
-        return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
+        return CreatedAtAction(
+            nameof(GetById), new { id = result.Data.Id }, result.Data);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<Student>> Update(
+    public async Task<ActionResult<StudentDto>> Update(
         Guid id,
-        StudentRequest model,
+        StudentUpdateDto dto,
         CancellationToken cancellationToken)
     {
-        var student = await students.GetByIdAsync(id, cancellationToken);
-        if (student is null)
-        {
-            return NotFound();
-        }
-
-        if (await departments.GetByIdAsync(model.DepartmentId, cancellationToken) is null)
-        {
-            return BadRequest(new { message = "El departamento indicado no existe." });
-        }
-
-        Apply(student, model);
-        try
-        {
-            await students.UpdateAsync(student, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
-
-        return Ok(student);
+        var result = await service.UpdateAsync(id, dto, cancellationToken);
+        return Map(result);
     }
 
     [HttpDelete("{id:guid}")]
@@ -88,45 +57,17 @@ public sealed class StudentsController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return await students.DeleteAsync(id, cancellationToken)
-                ? NoContent()
-                : NotFound();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Conflict(new { message = exception.Message });
-        }
+        var result = await service.DeleteAsync(id, cancellationToken);
+        return result.Success ? NoContent() : NotFound(new { errors = result.Errors });
     }
 
-    private static void Apply(Student student, StudentRequest model)
+    private ActionResult<StudentDto> Map(ServiceResult<StudentDto> result)
     {
-        student.StudentNumber = model.StudentNumber.Trim().ToUpperInvariant();
-        student.FirstName = model.FirstName.Trim();
-        student.LastName = model.LastName.Trim();
-        student.Email = model.Email.Trim().ToLowerInvariant();
-        student.PhoneNumber = model.PhoneNumber?.Trim();
-        student.DepartmentId = model.DepartmentId;
+        if (!result.Success)
+        {
+            return NotFound(new { errors = result.Errors });
+        }
+
+        return Ok(result.Data);
     }
-}
-
-public sealed class StudentRequest
-{
-    [Required, StringLength(30, MinimumLength = 2)]
-    public string StudentNumber { get; init; } = string.Empty;
-
-    [Required, StringLength(80, MinimumLength = 1)]
-    public string FirstName { get; init; } = string.Empty;
-
-    [Required, StringLength(80, MinimumLength = 1)]
-    public string LastName { get; init; } = string.Empty;
-
-    [Required, EmailAddress, StringLength(200)]
-    public string Email { get; init; } = string.Empty;
-
-    [Phone, StringLength(30)]
-    public string? PhoneNumber { get; init; }
-
-    public Guid DepartmentId { get; init; }
 }

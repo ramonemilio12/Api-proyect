@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using School.Application;
 using School.Infrastructure;
 using School.Infrastructure.Context;
 
@@ -14,6 +15,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddInfrastructure(
     builder.Configuration.GetConnectionString("SchoolDatabase")
     ?? "Data Source=school.db");
+builder.Services.AddApplication();
 
 var app = builder.Build();
 
