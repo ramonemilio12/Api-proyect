@@ -1,0 +1,39 @@
+@BiciTaller.Api_HostAddress = http://localhost:5186
+
+### Health
+GET {{BiciTaller.Api_HostAddress}}/health
+Accept: application/json
+
+### Create category
+POST {{BiciTaller.Api_HostAddress}}/api/categorias
+Content-Type: application/json
+
+{
+  "codigo": "REP",
+  "nombre": "Reparacion",
+  "descripcion": "Servicios de reparacion general"
+}
+
+### List categories
+GET {{BiciTaller.Api_HostAddress}}/api/categorias
+Accept: application/json
+
+### Create service (replace categoriaId with an existing category GUID)
+POST {{BiciTaller.Api_HostAddress}}/api/servicios
+Content-Type: application/json
+
+{
+  "codigo": "SRV-001",
+  "nombre": "Cambio de llanta",
+  "precio": 15000,
+  "categoriaId": "00000000-0000-0000-0000-000000000000",
+  "tecnicoId": null
+}
+
+### List clients
+GET {{BiciTaller.Api_HostAddress}}/api/clientes
+Accept: application/json
+
+### List technicians
+GET {{BiciTaller.Api_HostAddress}}/api/tecnicos
+Accept: application/json

@@ -1,30 +1,30 @@
-# School API
+# BiciTaller API
 
-API REST para administrar departamentos, cursos, estudiantes e instructores.
-La solución está separada en tres proyectos y sigue la estructura de capas de
-Dominio e Infraestructura.
+API REST para administrar categorías, servicios, clientes y técnicos de un
+taller de bicicletas. La solución está separada en tres proyectos y sigue la
+estructura de capas de Dominio e Infraestructura.
 
 ## Estructura
 
 ```
-School.Domain/
-  Core/          BaseEntity.cs, Person.cs
-  Entities/      Course.cs, Department.cs, Instructor.cs, Student.cs
+BiciTaller.Domain/
+  Core/          BaseEntity.cs, Persona.cs
+  Entities/      Categoria.cs, Servicio.cs, Cliente.cs, Tecnico.cs
   Repository/    IRepository.cs   (contrato genérico)
 
-School.Infrastructure/
-  Context/       SchoolContext.cs
+BiciTaller.Infrastructure/
+  Context/       BiciTallerContext.cs
   Core/          BaseRepository.cs, Repository.cs
-  Exceptions/    CourseException.cs, DepartmentException.cs
-  Interfaces/    ICourseRepository.cs, IDepartmentRepository.cs
-  Models/        CursoModel.cs, DepartmentModel.cs   (DTOs)
-  Repositories/  CourseRepository.cs, DepartmentRepository.cs
+  Exceptions/    CategoriaException.cs, ServicioException.cs
+  Interfaces/    ICategoriaRepository.cs, IServicioRepository.cs
+  Models/        CategoriaModel.cs, ServicioModel.cs   (DTOs)
+  Repositories/  CategoriaRepository.cs, ServicioRepository.cs
 
-School.Api/      controladores HTTP y registro de dependencias
+BiciTaller.Api/  controladores HTTP y registro de dependencias
 ```
 
-Los repositorios asignados (`Course` y `Department`) cuentan con interfaz,
-modelo (DTO) y excepción propios. `Student` e `Instructor` se gestionan a
+Los repositorios asignados (`Categoria` y `Servicio`) cuentan con interfaz,
+modelo (DTO) y excepción propios. `Cliente` y `Tecnico` se gestionan a
 través del repositorio genérico `IRepository<T>`.
 
 ## Ejecutar
@@ -32,13 +32,13 @@ través del repositorio genérico `IRepository<T>`.
 Requiere .NET 8 SDK. Desde la raíz del repositorio:
 
 ```powershell
-dotnet restore School.sln
-dotnet run --project School.Api
+dotnet restore BiciTaller.sln
+dotnet run --project BiciTaller.Api
 ```
 
 En modo Development, Swagger está disponible en `/swagger`. La base de datos
-SQLite (`school.db`) y sus tablas se crean automáticamente al iniciar el API.
-La cadena de conexión se configura en `School.Api/appsettings.json`.
+SQLite (`bicitaller.db`) y sus tablas se crean automáticamente al iniciar el API.
+La cadena de conexión se configura en `BiciTaller.Api/appsettings.json`.
 
 ## Endpoints
 
@@ -46,22 +46,22 @@ Los cuatro recursos ofrecen `GET /api/{recurso}`, `GET /api/{recurso}/{id}`,
 `POST /api/{recurso}`, `PUT /api/{recurso}/{id}` y
 `DELETE /api/{recurso}/{id}`:
 
-- `/api/departments`
-- `/api/courses`
-- `/api/students`
-- `/api/instructors`
+- `/api/categorias`
+- `/api/servicios`
+- `/api/clientes`
+- `/api/tecnicos`
 
-Las operaciones requieren GUID válidos para los departamentos relacionados.
-Los códigos de departamentos/cursos, números de estudiantes e instructores y
+Las operaciones requieren GUID válidos para las categorías relacionadas.
+Los códigos de categorías/servicios, números de clientes y técnicos y
 correos son únicos. Los conflictos de integridad o duplicados se devuelven como
 `409 Conflict`. También está disponible `GET /health`.
 
-Ejemplo para crear un departamento:
+Ejemplo para crear una categoría:
 
 ```json
 {
-  "code": "SCI",
-  "name": "Ciencias",
-  "description": "Departamento de ciencias"
+  "codigo": "REP",
+  "nombre": "Reparacion",
+  "descripcion": "Servicios de reparacion general"
 }
 ```
