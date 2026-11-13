@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace School.Infrastructure.Models;
 
-public sealed record CourseModel(
+public sealed record CursoModel(
     Guid Id,
     string Code,
     string Name,

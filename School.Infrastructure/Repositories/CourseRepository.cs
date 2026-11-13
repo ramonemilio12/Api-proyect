@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using School.Domain.Entities;
 using School.Infrastructure.Context;
 using School.Infrastructure.Core;
+using School.Infrastructure.Exceptions;
 using School.Infrastructure.Interfaces;
 
 namespace School.Infrastructure.Repositories;
@@ -27,6 +28,22 @@ public sealed class CourseRepository(SchoolContext context)
             .AsNoTracking()
             .FirstOrDefaultAsync(course => course.Id == id, cancellationToken);
 
+    public override async Task<Course> AddAsync(
+        Course entity,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureUniqueCodeAsync(entity.Code, null, cancellationToken);
+        return await base.AddAsync(entity, cancellationToken);
+    }
+
+    public override async Task<Course> UpdateAsync(
+        Course entity,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureUniqueCodeAsync(entity.Code, entity.Id, cancellationToken);
+        return await base.UpdateAsync(entity, cancellationToken);
+    }
+
     public Task<bool> CodeExistsAsync(
         string code,
         Guid? exceptId = null,
@@ -36,4 +53,15 @@ public sealed class CourseRepository(SchoolContext context)
                 course.Code == code
                 && (!exceptId.HasValue || course.Id != exceptId.Value),
             cancellationToken);
+
+    private async Task EnsureUniqueCodeAsync(
+        string code,
+        Guid? exceptId,
+        CancellationToken cancellationToken)
+    {
+        if (await CodeExistsAsync(code, exceptId, cancellationToken))
+        {
+            throw new CourseException($"Ya existe un curso con el código '{code}'.");
+        }
+    }
 }

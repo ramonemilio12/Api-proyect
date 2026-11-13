@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using School.Domain.Entities;
+using School.Domain.Repository;
 using School.Infrastructure.Exceptions;
 using School.Infrastructure.Interfaces;
 using School.Infrastructure.Models;
@@ -11,10 +12,10 @@ namespace School.Api.Controllers;
 public sealed class CoursesController(
     ICourseRepository courses,
     IDepartmentRepository departments,
-    IInstructorRepository instructors) : ControllerBase
+    IRepository<Instructor> instructors) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CourseModel>>> GetAll(
+    public async Task<ActionResult<IReadOnlyList<CursoModel>>> GetAll(
         CancellationToken cancellationToken)
     {
         var items = await courses.GetAllAsync(cancellationToken);
@@ -22,7 +23,7 @@ public sealed class CoursesController(
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<CourseModel>> GetById(
+    public async Task<ActionResult<CursoModel>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
@@ -31,7 +32,7 @@ public sealed class CoursesController(
     }
 
     [HttpPost]
-    public async Task<ActionResult<CourseModel>> Create(
+    public async Task<ActionResult<CursoModel>> Create(
         CourseWriteModel model,
         CancellationToken cancellationToken)
     {
@@ -41,19 +42,17 @@ public sealed class CoursesController(
             return BadRequest(new { message = invalidReference });
         }
 
-        var code = NormalizeCode(model.Code);
-        if (await courses.CodeExistsAsync(code, cancellationToken: cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un curso con ese código." });
-        }
-
         var course = new Course();
-        Apply(course, model, code);
+        Apply(course, model);
         try
         {
             await courses.AddAsync(course, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (CourseException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
@@ -64,7 +63,7 @@ public sealed class CoursesController(
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<CourseModel>> Update(
+    public async Task<ActionResult<CursoModel>> Update(
         Guid id,
         CourseWriteModel model,
         CancellationToken cancellationToken)
@@ -81,18 +80,16 @@ public sealed class CoursesController(
             return BadRequest(new { message = invalidReference });
         }
 
-        var code = NormalizeCode(model.Code);
-        if (await courses.CodeExistsAsync(code, id, cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un curso con ese código." });
-        }
-
-        Apply(course, model, code);
+        Apply(course, model);
         try
         {
             await courses.UpdateAsync(course, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (CourseException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
@@ -112,7 +109,7 @@ public sealed class CoursesController(
                 ? NoContent()
                 : NotFound();
         }
-        catch (DataIntegrityException exception)
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
@@ -146,9 +143,9 @@ public sealed class CoursesController(
             : "El instructor debe pertenecer al mismo departamento del curso.";
     }
 
-    private static void Apply(Course course, CourseWriteModel model, string code)
+    private static void Apply(Course course, CourseWriteModel model)
     {
-        course.Code = code;
+        course.Code = NormalizeCode(model.Code);
         course.Name = model.Name.Trim();
         course.Credits = model.Credits;
         course.DepartmentId = model.DepartmentId;
@@ -157,7 +154,7 @@ public sealed class CoursesController(
 
     private static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
 
-    private static CourseModel ToModel(Course course) =>
+    private static CursoModel ToModel(Course course) =>
         new(
             course.Id,
             course.Code,

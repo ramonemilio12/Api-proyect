@@ -33,15 +33,9 @@ public sealed class DepartmentsController(IDepartmentRepository departments)
         DepartmentWriteModel model,
         CancellationToken cancellationToken)
     {
-        var code = NormalizeCode(model.Code);
-        if (await departments.CodeExistsAsync(code, cancellationToken: cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un departamento con ese código." });
-        }
-
         var department = new Department
         {
-            Code = code,
+            Code = NormalizeCode(model.Code),
             Name = model.Name.Trim(),
             Description = model.Description?.Trim(),
         };
@@ -49,13 +43,16 @@ public sealed class DepartmentsController(IDepartmentRepository departments)
         {
             await departments.AddAsync(department, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (DepartmentException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
 
-        var response = ToModel(department);
-        return CreatedAtAction(nameof(GetById), new { id = department.Id }, response);
+        return CreatedAtAction(nameof(GetById), new { id = department.Id }, ToModel(department));
     }
 
     [HttpPut("{id:guid}")]
@@ -70,21 +67,18 @@ public sealed class DepartmentsController(IDepartmentRepository departments)
             return NotFound();
         }
 
-        var code = NormalizeCode(model.Code);
-        if (await departments.CodeExistsAsync(
-                code, id, cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un departamento con ese código." });
-        }
-
-        department.Code = code;
+        department.Code = NormalizeCode(model.Code);
         department.Name = model.Name.Trim();
         department.Description = model.Description?.Trim();
         try
         {
             await departments.UpdateAsync(department, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (DepartmentException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
@@ -103,7 +97,7 @@ public sealed class DepartmentsController(IDepartmentRepository departments)
                 ? NoContent()
                 : NotFound();
         }
-        catch (DataIntegrityException exception)
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }

@@ -1,11 +1,31 @@
 # School API
 
 API REST para administrar departamentos, cursos, estudiantes e instructores.
-La solución está separada en tres proyectos:
+La solución está separada en tres proyectos y sigue la estructura de capas de
+Dominio e Infraestructura.
 
-- `School.Domain`: entidades base, personas, relaciones y contrato genérico de repositorio.
-- `School.Infrastructure`: contexto EF Core, DTOs, implementaciones de repositorios y acceso SQLite.
-- `School.Api`: controladores HTTP y registro de dependencias.
+## Estructura
+
+```
+School.Domain/
+  Core/          BaseEntity.cs, Person.cs
+  Entities/      Course.cs, Department.cs, Instructor.cs, Student.cs
+  Repository/    IRepository.cs   (contrato genérico)
+
+School.Infrastructure/
+  Context/       SchoolContext.cs
+  Core/          BaseRepository.cs, Repository.cs
+  Exceptions/    CourseException.cs, DepartmentException.cs
+  Interfaces/    ICourseRepository.cs, IDepartmentRepository.cs
+  Models/        CursoModel.cs, DepartmentModel.cs   (DTOs)
+  Repositories/  CourseRepository.cs, DepartmentRepository.cs
+
+School.Api/      controladores HTTP y registro de dependencias
+```
+
+Los repositorios asignados (`Course` y `Department`) cuentan con interfaz,
+modelo (DTO) y excepción propios. `Student` e `Instructor` se gestionan a
+través del repositorio genérico `IRepository<T>`.
 
 ## Ejecutar
 
@@ -33,8 +53,8 @@ Los cuatro recursos ofrecen `GET /api/{recurso}`, `GET /api/{recurso}/{id}`,
 
 Las operaciones requieren GUID válidos para los departamentos relacionados.
 Los códigos de departamentos/cursos, números de estudiantes e instructores y
-correos son únicos. Los conflictos de integridad se devuelven como `409 Conflict`.
-También está disponible `GET /health`.
+correos son únicos. Los conflictos de integridad o duplicados se devuelven como
+`409 Conflict`. También está disponible `GET /health`.
 
 Ejemplo para crear un departamento:
 

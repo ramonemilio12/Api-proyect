@@ -1,37 +1,37 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using School.Domain.Entities;
-using School.Infrastructure.Exceptions;
+using School.Domain.Repository;
 using School.Infrastructure.Interfaces;
-using School.Infrastructure.Models;
 
 namespace School.Api.Controllers;
 
 [ApiController]
 [Route("api/instructors")]
 public sealed class InstructorsController(
-    IInstructorRepository instructors,
+    IRepository<Instructor> instructors,
     IDepartmentRepository departments) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<InstructorModel>>> GetAll(
+    public async Task<ActionResult<IReadOnlyList<Instructor>>> GetAll(
         CancellationToken cancellationToken)
     {
         var items = await instructors.GetAllAsync(cancellationToken);
-        return Ok(items.Select(ToModel).ToList());
+        return Ok(items);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<InstructorModel>> GetById(
+    public async Task<ActionResult<Instructor>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
         var instructor = await instructors.GetByIdAsync(id, cancellationToken);
-        return instructor is null ? NotFound() : Ok(ToModel(instructor));
+        return instructor is null ? NotFound() : Ok(instructor);
     }
 
     [HttpPost]
-    public async Task<ActionResult<InstructorModel>> Create(
-        InstructorWriteModel model,
+    public async Task<ActionResult<Instructor>> Create(
+        InstructorRequest model,
         CancellationToken cancellationToken)
     {
         if (await departments.GetByIdAsync(model.DepartmentId, cancellationToken) is null)
@@ -39,33 +39,24 @@ public sealed class InstructorsController(
             return BadRequest(new { message = "El departamento indicado no existe." });
         }
 
-        var employeeNumber = model.EmployeeNumber.Trim().ToUpperInvariant();
-        if (await instructors.EmployeeNumberExistsAsync(
-                employeeNumber, cancellationToken: cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un instructor con ese código." });
-        }
-
         var instructor = new Instructor();
-        Apply(instructor, model, employeeNumber);
+        Apply(instructor, model);
         try
         {
             await instructors.AddAsync(instructor, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
 
-        var created = await instructors.GetByIdAsync(instructor.Id, cancellationToken);
-        return CreatedAtAction(
-            nameof(GetById), new { id = instructor.Id }, ToModel(created!));
+        return CreatedAtAction(nameof(GetById), new { id = instructor.Id }, instructor);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<InstructorModel>> Update(
+    public async Task<ActionResult<Instructor>> Update(
         Guid id,
-        InstructorWriteModel model,
+        InstructorRequest model,
         CancellationToken cancellationToken)
     {
         var instructor = await instructors.GetByIdAsync(id, cancellationToken);
@@ -79,25 +70,17 @@ public sealed class InstructorsController(
             return BadRequest(new { message = "El departamento indicado no existe." });
         }
 
-        var employeeNumber = model.EmployeeNumber.Trim().ToUpperInvariant();
-        if (await instructors.EmployeeNumberExistsAsync(
-                employeeNumber, id, cancellationToken))
-        {
-            return Conflict(new { message = "Ya existe un instructor con ese código." });
-        }
-
-        Apply(instructor, model, employeeNumber);
+        Apply(instructor, model);
         try
         {
             await instructors.UpdateAsync(instructor, cancellationToken);
         }
-        catch (DataIntegrityException exception)
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
 
-        var updated = await instructors.GetByIdAsync(id, cancellationToken);
-        return Ok(ToModel(updated!));
+        return Ok(instructor);
     }
 
     [HttpDelete("{id:guid}")]
@@ -111,37 +94,39 @@ public sealed class InstructorsController(
                 ? NoContent()
                 : NotFound();
         }
-        catch (DataIntegrityException exception)
+        catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
         }
     }
 
-    private static void Apply(
-        Instructor instructor,
-        InstructorWriteModel model,
-        string employeeNumber)
+    private static void Apply(Instructor instructor, InstructorRequest model)
     {
-        instructor.EmployeeNumber = employeeNumber;
+        instructor.EmployeeNumber = model.EmployeeNumber.Trim().ToUpperInvariant();
         instructor.FirstName = model.FirstName.Trim();
         instructor.LastName = model.LastName.Trim();
         instructor.Email = model.Email.Trim().ToLowerInvariant();
         instructor.PhoneNumber = model.PhoneNumber?.Trim();
         instructor.DepartmentId = model.DepartmentId;
     }
+}
 
-    private static InstructorModel ToModel(Instructor instructor) =>
-        new(
-            instructor.Id,
-            instructor.EmployeeNumber,
-            instructor.FirstName,
-            instructor.LastName,
-            instructor.FullName,
-            instructor.Email,
-            instructor.PhoneNumber,
-            instructor.DepartmentId,
-            instructor.Department.Name,
-            instructor.HireDateUtc,
-            instructor.CreatedAtUtc,
-            instructor.UpdatedAtUtc);
+public sealed class InstructorRequest
+{
+    [Required, StringLength(30, MinimumLength = 2)]
+    public string EmployeeNumber { get; init; } = string.Empty;
+
+    [Required, StringLength(80, MinimumLength = 1)]
+    public string FirstName { get; init; } = string.Empty;
+
+    [Required, StringLength(80, MinimumLength = 1)]
+    public string LastName { get; init; } = string.Empty;
+
+    [Required, EmailAddress, StringLength(200)]
+    public string Email { get; init; } = string.Empty;
+
+    [Phone, StringLength(30)]
+    public string? PhoneNumber { get; init; }
+
+    public Guid DepartmentId { get; init; }
 }

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using School.Domain.Core;
 using School.Domain.Repository;
 using School.Infrastructure.Context;
-using School.Infrastructure.Exceptions;
 
 namespace School.Infrastructure.Core;
 
@@ -23,7 +22,7 @@ public abstract class BaseRepository<TEntity>(SchoolContext context)
         Entities.AsNoTracking().FirstOrDefaultAsync(
             entity => entity.Id == id, cancellationToken);
 
-    public async Task<TEntity> AddAsync(
+    public virtual async Task<TEntity> AddAsync(
         TEntity entity,
         CancellationToken cancellationToken = default)
     {
@@ -32,7 +31,7 @@ public abstract class BaseRepository<TEntity>(SchoolContext context)
         return entity;
     }
 
-    public async Task<TEntity> UpdateAsync(
+    public virtual async Task<TEntity> UpdateAsync(
         TEntity entity,
         CancellationToken cancellationToken = default)
     {
@@ -65,7 +64,7 @@ public abstract class BaseRepository<TEntity>(SchoolContext context)
         }
         catch (DbUpdateException exception)
         {
-            throw new DataIntegrityException(
+            throw new InvalidOperationException(
                 "La operación viola una relación o una restricción de datos.",
                 exception);
         }
