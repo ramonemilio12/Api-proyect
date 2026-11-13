@@ -1,44 +1,44 @@
-# School API
+# BiciTaller API
 
-API REST para administrar departamentos, cursos, estudiantes e instructores.
-La solución está separada en cuatro proyectos y sigue una arquitectura por capas
-(Dominio, Infraestructura, Aplicación y API).
+API REST para administrar categorías, servicios, clientes y técnicos de un
+taller de bicicletas. La solución está separada en cuatro proyectos y sigue una
+arquitectura por capas (Dominio, Infraestructura, Aplicación y API).
 
 ## Estructura
 
 ```
-School.Domain/
-  Core/          BaseEntity.cs, Person.cs
-  Entities/      Course.cs, Department.cs, Instructor.cs, Student.cs
+BiciTaller.Domain/
+  Core/          BaseEntity.cs, Persona.cs
+  Entities/      Categoria.cs, Servicio.cs, Cliente.cs, Tecnico.cs
   Repository/    IRepository.cs          (contrato genérico)
 
-School.Infrastructure/
-  Context/       SchoolContext.cs
+BiciTaller.Infrastructure/
+  Context/       BiciTallerContext.cs
   Core/          BaseRepository.cs, Repository.cs
-  Exceptions/    CourseException.cs, DepartmentException.cs
-  Interfaces/    ICourseRepository.cs, IDepartmentRepository.cs
-  Repositories/  CourseRepository.cs, DepartmentRepository.cs
+  Exceptions/    CategoriaException.cs, ServicioException.cs
+  Interfaces/    ICategoriaRepository.cs, IServicioRepository.cs
+  Repositories/  CategoriaRepository.cs, ServicioRepository.cs
 
-School.Application/
-  Contract/      IDepartamentService.cs, ICourseService.cs,
-                 IStudentService.cs, IInstructorService.cs
+BiciTaller.Application/
+  Contract/      ICategoriaService.cs, IServicioService.cs,
+                 IClienteService.cs, ITecnicoService.cs
   Core/          IBaseService.cs, BaseService.cs, ServiceResult.cs
   Dtos/          DtoBase.cs
-    Course/      CourseDto.cs, CourseCreateDto.cs, CourseUpdateDto.cs
-    Department/  DepartmentDto.cs, DepartmentCreateDto.cs, DepartmentUpdateDto.cs
-    Student/     StudentDto.cs, StudentCreateDto.cs, StudentUpdateDto.cs
-    Instructor/  InstructorDto.cs, InstructorCreateDto.cs, InstructorUpdateDto.cs
-  Service/       DepartamentService.cs, CourseService.cs,
-                 StudentService.cs, InstructorService.cs
+    Categoria/   CategoriaDto.cs, CategoriaCreateDto.cs, CategoriaUpdateDto.cs
+    Servicio/    ServicioDto.cs, ServicioCreateDto.cs, ServicioUpdateDto.cs
+    Cliente/     ClienteDto.cs, ClienteCreateDto.cs, ClienteUpdateDto.cs
+    Tecnico/     TecnicoDto.cs, TecnicoCreateDto.cs, TecnicoUpdateDto.cs
+  Service/       CategoriaService.cs, ServicioService.cs,
+                 ClienteService.cs, TecnicoService.cs
 
-School.Api/      controladores HTTP y registro de dependencias
+BiciTaller.Api/      controladores HTTP y registro de dependencias
 ```
 
 La capa de **Aplicación** contiene los servicios de negocio. Cada servicio:
 - Implementa las validaciones de los campos de su entidad (longitudes, rangos,
   formatos de correo y teléfono).
 - Aplica reglas de negocio (códigos únicos, correos únicos, existencia de
-  referencias como departamentos e instructores).
+  referencias como categorías y técnicos).
 - Devuelve `ServiceResult<T>` con los datos o la lista de errores.
 
 Los controladores consumen los servicios y traducen `ServiceResult` a respuestas
@@ -49,13 +49,13 @@ HTTP (200/201/204/400/404/409).
 Requiere .NET 8 SDK. Desde la raíz del repositorio:
 
 ```powershell
-dotnet restore School.sln
-dotnet run --project School.Api
+dotnet restore BiciTaller.sln
+dotnet run --project BiciTaller.Api
 ```
 
 En modo Development, Swagger está disponible en `/swagger`. La base de datos
-SQLite (`school.db`) y sus tablas se crean automáticamente al iniciar el API.
-La cadena de conexión se configura en `School.Api/appsettings.json`.
+SQLite (`bicitaller.db`) y sus tablas se crean automáticamente al iniciar el API.
+La cadena de conexión se configura en `BiciTaller.Api/appsettings.json`.
 
 ## Endpoints
 
@@ -63,23 +63,23 @@ Los cuatro recursos ofrecen `GET /api/{recurso}`, `GET /api/{recurso}/{id}`,
 `POST /api/{recurso}`, `PUT /api/{recurso}/{id}` y
 `DELETE /api/{recurso}/{id}`:
 
-- `/api/departments`
-- `/api/courses`
-- `/api/students`
-- `/api/instructors`
+- `/api/categorias`
+- `/api/servicios`
+- `/api/clientes`
+- `/api/tecnicos`
 
-Las operaciones requieren GUID válidos para los departamentos relacionados.
-Los códigos de departamentos/cursos, números de estudiantes e instructores y
+Las operaciones requieren GUID válidos para las categorías relacionadas.
+Los códigos de categorías/servicios, números de clientes y técnicos y
 correos son únicos. Los conflictos de integridad o duplicados se devuelven como
 `409 Conflict` con una lista de errores. Las validaciones de campos fallan con
 `400 Bad Request`. También está disponible `GET /health`.
 
-Ejemplo para crear un departamento:
+Ejemplo para crear una categoría:
 
 ```json
 {
-  "code": "SCI",
-  "name": "Ciencias",
-  "description": "Departamento de ciencias"
+  "codigo": "REP",
+  "nombre": "Reparación",
+  "descripcion": "Servicios de reparación general"
 }
 ```
